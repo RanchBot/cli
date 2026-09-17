@@ -1,5 +1,5 @@
 import { Command } from 'commander';
-import { setDefaultFarmId } from '../config';
+import { resolveRuntime, setDefaultFarmId } from '../config';
 import { withGlobals, run, run1 } from '../shared';
 import { printResult } from '../output';
 
@@ -32,7 +32,7 @@ export function registerFarms(program: Command): void {
   withGlobals(farms.command('use').description('Set the default farm for future commands.'))
     .argument('<farm_id>')
     .action((farmId: string, opts: any) => {
-      setDefaultFarmId(farmId);
+      setDefaultFarmId(farmId, opts.local ? resolveRuntime(opts).apiUrl : undefined);
       printResult({ default_farm_id: farmId, message: `Default farm set to ${farmId}` }, opts);
     });
 }

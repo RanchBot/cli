@@ -42,7 +42,7 @@ describe('initiateDeviceFlow profiles', () => {
     expect(mockedAxios.post).toHaveBeenCalledWith('https://api.test/oauth/device', {
       client_id: 'normal-client',
       scope:
-        'read:farms write:farms read:animals write:animals read:records write:records read:groups write:groups',
+        'read:farms write:farms read:animals write:animals read:records write:records read:groups write:groups read:exports',
     });
   });
 

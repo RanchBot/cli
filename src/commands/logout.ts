@@ -1,3 +1,5 @@
+import axios from 'axios';
+import { clearLocalSession, loadLocalSession, localOrigin } from '../localSession';
 import { Command } from 'commander';
 import {
   clearTokens,
@@ -12,6 +14,26 @@ import { printResult } from '../output';
 import { GlobalOptions, toRuntimeOverrides, withGlobals } from '../shared';
 
 export async function logout(overrides: RuntimeOverrides = {}): Promise<unknown> {
+  if (overrides.local) {
+    const origin = localOrigin(resolveRuntime(overrides).apiUrl);
+    const session = loadLocalSession(origin);
+    if (session) {
+      try {
+        await axios.post(origin + '/v1/auth/logout', undefined, {
+          headers: { Authorization: `Bearer ${session.access_token}` },
+          maxRedirects: 0,
+          proxy: false,
+          timeout: 15000,
+        });
+      } catch {
+        throw new Error(
+          'Could not revoke the local session. Check the installation connection and try again.',
+        );
+      }
+    }
+    clearLocalSession(origin);
+    return { signed_out: true, local: true };
+  }
   const profile = resolveProfile(overrides.profile);
   await withTokenLock(async () => {
     const tokens = loadTokens(profile);

@@ -1,3 +1,4 @@
+import { localOrigin } from './localSession';
 import { tryLock } from 'fs-native-extensions';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -87,6 +88,7 @@ export interface StoredTokens {
 
 interface StoredConfig {
   defaultFarmId?: string;
+  localFarms?: Record<string, string>;
 }
 
 /** Ensure ~/.ranchbot exists with restrictive perms. Idempotent. */
@@ -231,12 +233,20 @@ function saveConfig(config: StoredConfig): void {
   fs.writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2), { mode: 0o600 });
 }
 
-export function getDefaultFarmId(): string | undefined {
-  return loadConfig().defaultFarmId;
+export function getDefaultFarmId(origin?: string): string | undefined {
+  const config = loadConfig();
+  return origin ? config.localFarms?.[localOrigin(origin)] : config.defaultFarmId;
 }
 
-export function setDefaultFarmId(farmId: string | null): void {
+export function setDefaultFarmId(farmId: string | null, origin?: string): void {
   const config = loadConfig();
+  if (origin) {
+    config.localFarms ??= {};
+    if (farmId) config.localFarms[localOrigin(origin)] = farmId;
+    else delete config.localFarms[localOrigin(origin)];
+    saveConfig(config);
+    return;
+  }
   if (farmId) {
     config.defaultFarmId = farmId;
   } else {
@@ -253,9 +263,11 @@ export interface RuntimeOverrides {
   clientId?: string;
   profile?: string;
   admin?: boolean;
+  local?: boolean;
 }
 
 export interface RuntimeConfig {
+  local?: boolean;
   apiUrl: string;
   apiVersion: string;
   clientId: string;
@@ -266,7 +278,17 @@ export interface RuntimeConfig {
 }
 
 export function resolveRuntime(overrides: RuntimeOverrides = {}): RuntimeConfig {
-  const apiUrl = overrides.apiUrl || process.env.RANCHBOT_API_URL || 'https://api.ranch.bot';
+  const apiUrl =
+    overrides.apiUrl ||
+    process.env.RANCHBOT_API_URL ||
+    (overrides.local ? 'http://localhost:8080' : 'https://api.ranch.bot');
+  if (
+    overrides.local &&
+    (overrides.admin || (overrides.profile && overrides.profile !== 'default'))
+  )
+    throw new CliError(
+      'Local mode uses installation accounts, without admin or observer profiles.',
+    );
   const apiVersion = overrides.apiVersion || process.env.API_VERSION || 'v1';
   const profile = resolveProfile(overrides.profile);
   if (profile === 'observer' && overrides.admin) {
@@ -289,6 +311,7 @@ export function resolveRuntime(overrides: RuntimeOverrides = {}): RuntimeConfig 
         : process.env.COGNITO_DEVICE_CLIENT_ID || 'ranchbot-cli';
   const clientId = overrides.clientId || profileClientId;
   return {
+    ...(overrides.local ? { local: true } : {}),
     apiUrl,
     apiVersion,
     clientId,

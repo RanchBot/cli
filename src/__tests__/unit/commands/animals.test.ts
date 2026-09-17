@@ -11,7 +11,7 @@ import {
 describe('animals commands', () => {
   it('list animals forwards skip/take and resolves the farm', async () => {
     const client = createMockClient();
-    client.listAnimals.mockResolvedValueOnce({ animals: [{ id: 'a1' }], total: 1 } as any);
+    client.listAnimals.mockResolvedValueOnce({ records: [{ id: 'a1' }], total: 1 } as any);
 
     const result = await listAnimals(client, 'farm-1', { skip: '10', take: '50' });
 
@@ -21,7 +21,7 @@ describe('animals commands', () => {
 
   it('list uses --farm override over the default', async () => {
     const client = createMockClient();
-    client.listAnimals.mockResolvedValueOnce({ animals: [] } as any);
+    client.listAnimals.mockResolvedValueOnce({ records: [] } as any);
 
     await listAnimals(client, 'farm-1', { farm: 'farm-9' });
 
@@ -31,6 +31,32 @@ describe('animals commands', () => {
   it('list throws when no farm is selected', async () => {
     const client = createMockClient();
     await expect(listAnimals(client, '', {})).rejects.toThrow(/No farm selected/);
+  });
+
+  it('forwards explicit status separately from metadata and rejects invalid statuses before a request', async () => {
+    const client = createMockClient();
+    client.listAnimals.mockResolvedValue({ records: [], total: 0 } as any);
+    client.createAnimal.mockResolvedValue({ id: 'historical' } as any);
+    client.updateAnimal.mockResolvedValue({ id: 'historical' } as any);
+    await listAnimals(client, 'farm-1', { inventoryStatus: 'ALL' });
+    await createAnimal(client, 'farm-1', { inventoryStatus: 'UNKNOWN' });
+    await updateAnimal(client, 'farm-1', { animal_id: 'historical', inventoryStatus: 'SOLD' });
+    expect(client.listAnimals).toHaveBeenCalledWith('farm-1', { inventory_status: 'ALL' });
+    expect(client.createAnimal).toHaveBeenCalledWith('farm-1', {
+      inventory_status: 'UNKNOWN',
+      metadata: undefined,
+    });
+    expect(client.updateAnimal).toHaveBeenCalledWith('farm-1', 'historical', {
+      inventory_status: 'SOLD',
+      metadata: undefined,
+    });
+    await expect(createAnimal(client, 'farm-1', { inventoryStatus: 'ALL' })).rejects.toThrow(
+      'Invalid --inventory-status',
+    );
+    await expect(listAnimals(client, 'farm-1', { inventoryStatus: 'sold' })).rejects.toThrow(
+      'Invalid --inventory-status',
+    );
+    expect(client.createAnimal).toHaveBeenCalledTimes(1);
   });
 
   it('get animal by id', async () => {

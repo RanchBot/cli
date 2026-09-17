@@ -1,7 +1,7 @@
 {
   "name": "@ranchbot/cli",
-  "version": "1.0.0",
-  "description": "Ranch.Bot CLI — operate farm data (animals, records, groups, identifiers, chute sessions, rations, feedings, memory, imports) from any agent harness or shell. Reuses the MCP server's device-flow auth; read-heavy first.",
+  "version": "1.1.0",
+  "description": "Read and manage Ranch.Bot livestock records from a terminal or assistant: animals, births, exports, groups, records, and operator commands.",
   "main": "dist/index.js",
   "bin": {
     "ranchbot": "dist/index.js"

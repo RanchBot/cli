@@ -6,7 +6,7 @@ Requires Node.js 22+ and a Ranch.Bot account with access to a farm.
 ## Install
 
 ```bash
-npm install -g @ranchbot/cli@1.0.0
+npm install -g @ranchbot/cli@1.1.0
 ranchbot --version
 ranchbot --help
 ```
@@ -14,7 +14,7 @@ ranchbot --help
 Or run without a global installation:
 
 ```bash
-npx -y @ranchbot/cli@1.0.0 --help
+npx -y @ranchbot/cli@1.1.0 --help
 ```
 
 Stop all older CLI/MCP processes before upgrading. See the locking and upgrade notes below.
@@ -36,7 +36,8 @@ Help and version commands work without signing in. Ordinary sessions refresh aut
 needed. `logout` revokes the refresh session and removes the local credentials.
 
 Normal credentials can create, update, and delete data according to your server permissions.
-The CLI does not enforce private agent approval procedures or ask for per-operation confirmation.
+Ordinary farm-data commands do not ask for per-operation confirmation. Admin account deletion
+has a separate interactive confirmation described below.
 CLI writes do not pass through the app review screen or its Action-backed Change History.
 Review write commands before running them or allowing an agent to execute them.
 
@@ -53,6 +54,7 @@ Every leaf command accepts these flags (place them after the leaf command, as in
 | `-j, --json` | Machine-readable JSON on stdout (agents always set this). |
 | `--farm <id>` | Use this farm for one command (overrides the default). |
 | `--api-url <url>` / `--api-version <v>` / `--client-id <id>` | Overrides; rarely needed. `--client-id` cannot replace the observer client. |
+| `--local` | Use installation accounts and a separate origin-bound session cache. |
 | `--profile <name>` | Credential profile: `default` or read-only `observer`. |
 
 Complex payloads (`--data`) accept inline JSON, `@file.json`, or `-` (stdin).
@@ -68,14 +70,88 @@ Complex payloads (`--data`) accept inline JSON, `@file.json`, or `-` (stdin).
 | `groups` | `list`, `get <id>`, `create --name [--description]`, `update <id>`, `delete <id>` |
 | `records` | `list [--type]`, `get <id>`, `create --name --type --applied-at --animal/--group`, `update <id>`, `delete <id>` |
 | `chute` | `list [--status]`, `get <id>`, `create --data <widgets>`, `update <id> --data <widgets>` (propose only) |
+| `birth-events` | `preview --data`, `confirm --data`, `list [--animal <id>]`, `get <id>` |
+| `birth-history` | `settings`, `configure --data`, `evidence --dam <id> --date YYYY-MM-DD` |
+| `birth-sources` | `get <sourceSmsId>` |
+| `farm-tasks` | `list [--status]`, `update <id> --data` |
+| `protocols` | `list`, `create --data` |
 | `rations` | `list [--include-inactive]`, `get <id>`, `create --data <ration>` (structure only) |
 | `feedings` | `list [--status] [--since]`, `get <id>` (read-only) |
+| `exports` | `create`, `list`, `status <id>`, `cancel <id>`, `download <id> --output <path>` |
+| `imports` | `list`, `get <id>`, `update-status <id> --status <status> --summary <summary>` (admin) |
+| `accounts` | `delete --phone <phone> [--dry-run]`, `deletion-status <id>`, `resume-deletion <id>` (admin) |
+| `inspect` | `sms --latest/--message-sid <sid>/--record-id <id>`, `record <id>` (observer) |
 | `memory` | `list` (read-only; saving memory is in-app only) |
 
 Identifier types: `BRAND`, `EID`, `MANAGEMENT_TAG`, `NAME`, `TATTOO`.
 Record types: `FEED`, `GENETIC`, `HEALTH`, `MOVEMENT`, `OTHER`.
 
 Run `ranchbot <group> --help` or `ranchbot <group> <command> --help` for per-command flags.
+
+Birth capture uses two explicit calls: `birth-events preview --data @birth.json --json`
+accepts `{request_id, bundle}` and saves no farm data. Review the complete returned bundle and
+resolved evidence with the producer, then pass that approved JSON to
+`birth-events confirm --data @reviewed-birth.json --json`. Confirmation preserves the returned
+`request_id`, `bundle`, and `confirmation_hash`; retries use the same values. Corrections require
+a fresh preview and producer approval. Confirmation needs EDITOR access and all three
+`write:records`, `write:animals`, and `write:groups` scopes.
+
+`birth-sources get <sourceSmsId> --farm <farmId> --json` reads your retained SMS media status
+and current-farm identity candidates. It requires source authorship, current farm access, and both
+`read:records` and `read:animals`. Partial or ambiguous matches require producer selection.
+
+Task updates accept `{status, due_date?}`. Omit `due_date` to preserve it or use `null` to clear it;
+undated TODOs remain listed. Protocol creation accepts the exact producer-approved
+`{name, version, steps}`; an existing version's steps cannot be replaced.
+
+`birth-history settings` reads configured species intervals and birth windows.
+`birth-history configure --data @settings.json` replaces producer-approved settings;
+no gestation or age defaults are assumed. `birth-history evidence --dam <id> --date YYYY-MM-DD`
+returns recorded exposure and movement evidence without selecting a sire.
+
+## Inventory and exports
+
+`animals list` defaults to current inventory. Use `--inventory-status CURRENT`, `UNKNOWN`,
+`SOLD`, `DECEASED`, or `ALL` to choose the population. `animals create` and `animals update <id>`
+accept the four individual statuses; changing status preserves the animal's history.
+`animals find-by-eid` can create an animal when no match exists.
+
+```bash
+ranchbot animals list --inventory-status ALL --json
+ranchbot exports create --json
+ranchbot exports list --json
+ranchbot exports status <id> --json
+ranchbot exports download <id> --output ./farm-archive.zip --json
+```
+
+Exports require `read:exports`; run `ranchbot login` again if your existing session lacks this
+scope. Refreshing an old session does not add scopes. Archive access remains subject to farm
+permissions and is available without a subscription. Wait until the job is ready before downloading;
+`exports cancel <id>` cancels an export. Downloads verify the server's SHA-256 checksum, remove
+partial or invalid output, and refuse to overwrite an existing file. Treat archives as private
+farm data. Downloads are available for 24 hours. Other members’ private conversations, account
+credentials, and unrelated account/provider records are excluded. This is not a complete account backup.
+
+## Local installation login
+
+```bash
+ranchbot login --local --api-url http://localhost:8080
+ranchbot farms list --local --api-url http://localhost:8080 --json
+ranchbot farms use <id> --local --api-url http://localhost:8080
+ranchbot animals list --local --api-url http://localhost:8080 --json
+ranchbot logout --local --api-url http://localhost:8080
+```
+
+Login verifies the installation's local mode, then prompts in a terminal for its username and
+password. Pass `--local` on every local command. The default local address is
+`http://localhost:8080`; `--api-url` or `RANCHBOT_API_URL` can override it. Use an origin only
+(no path, query, or embedded credentials). LAN addresses require HTTPS; HTTP is allowed only on
+loopback. Local mode does not support admin or observer profiles.
+
+Local credentials live under `~/.ranchbot/local/`, keyed by the exact installation origin,
+and are shared with local MCP sessions. Local farm selection is also origin-specific. Cloud
+credentials and the cloud default farm remain separate. Local sessions expire without automatic
+refresh; sign in again when needed. Logout revokes that installation session before clearing it.
 
 ## Output and exit codes
 
@@ -151,3 +227,36 @@ times out after 30 seconds.
 ## License
 
 MIT. See [LICENSE](LICENSE).
+
+## Admin account deletion
+
+This operator workflow requires a server-authorized administrator. Run a fresh
+`ranchbot login --admin` after upgrading: existing sessions lack `admin:accounts:delete`.
+Ordinary CLI, observer, browser, and API-key sessions cannot authorize deletion. Admin login
+replaces the default cloud session; use ordinary `login` again when finished.
+
+```bash
+ranchbot login --admin
+ranchbot accounts delete --phone +15550001851 --dry-run --json
+ranchbot accounts delete --phone +15550001851
+ranchbot accounts deletion-status <job-id> --json
+ranchbot accounts resume-deletion <job-id>
+```
+
+The number above is fictional. Preview the intended account, API environment, deleted and
+preserved farms, files, billing scope, and blockers before acting. Resolve all blockers.
+Execution obtains a fresh preview and requires an interactive terminal, the full target phone
+number, and a final `yes` acknowledging permanent deletion and immediate billing cancellation.
+A different phone or a negative answer cancels. There is no `--yes` or `--force` bypass.
+Dry-run and status work without a terminal and support JSON.
+
+Save the returned job ID and poll `deletion-status`. If a job is `FAILED`, resolve its reported
+fault, then use `resume-deletion`; resumption repeats the full-phone and final confirmation.
+Only failed jobs can be resumed. Changed inventory or billing scope requires a fresh preview.
+Administrators cannot be deletion targets. Owning or financing a farm shared with another real
+account blocks deletion; membership in another owner's farm is removed while preserving its data.
+
+Deletion covers the agreed live-system inventory. Shared historical text, backups, application
+and provider logs, Stripe billing history, and downloaded/offline copies can remain. Deployment
+of the matching API and migration, replacement of old workers, and provider permissions must be
+verified before use. Validate only with disposable accounts; release acceptance uses preview only.

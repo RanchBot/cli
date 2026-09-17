@@ -1,16 +1,28 @@
 import { Command } from 'commander';
 import { withGlobals, run, run1, resolveFarm } from '../shared';
-import { readDataFlag } from '../args';
+import { assertEnum, readDataFlag } from '../args';
+
+const INVENTORY_STATUSES = ['CURRENT', 'UNKNOWN', 'SOLD', 'DECEASED'];
+const inventoryStatus = (value: string | undefined, allowAll = false) =>
+  value === undefined
+    ? undefined
+    : assertEnum(
+        value,
+        allowAll ? [...INVENTORY_STATUSES, 'ALL'] : INVENTORY_STATUSES,
+        'inventory-status',
+      );
 
 export const listAnimals = async (client: any, defaultFarmId: string, opts: any) => {
   const farmId = resolveFarm(opts, defaultFarmId);
-  const params: { skip?: number; take?: number } = {};
+  const params: { skip?: number; take?: number; inventory_status?: string } = {};
   if (opts.skip !== undefined) params.skip = Number(opts.skip);
   if (opts.take !== undefined) params.take = Number(opts.take);
+  if (opts.inventoryStatus !== undefined)
+    params.inventory_status = inventoryStatus(opts.inventoryStatus, true);
   const result = await client.listAnimals(farmId, params);
   return {
     ...result,
-    message: `Found ${result.animals?.length || 0} animal(s)`,
+    message: `Found ${result.records?.length || 0} animal(s)`,
   };
 };
 
@@ -22,14 +34,20 @@ export const getAnimal = async (client: any, defaultFarmId: string, opts: any) =
 export const createAnimal = async (client: any, defaultFarmId: string, opts: any) => {
   const farmId = resolveFarm(opts, defaultFarmId);
   const metadata = readDataFlag(opts.metadata);
-  const result = await client.createAnimal(farmId, { metadata });
+  const result = await client.createAnimal(farmId, {
+    metadata,
+    inventory_status: inventoryStatus(opts.inventoryStatus),
+  });
   return { ...result, message: `Animal created successfully with ID: ${result.id}` };
 };
 
 export const updateAnimal = async (client: any, defaultFarmId: string, opts: any) => {
   const farmId = resolveFarm(opts, defaultFarmId);
   const metadata = readDataFlag(opts.metadata);
-  const result = await client.updateAnimal(farmId, opts.animal_id, { metadata });
+  const result = await client.updateAnimal(farmId, opts.animal_id, {
+    metadata,
+    inventory_status: inventoryStatus(opts.inventoryStatus),
+  });
   return { ...result, message: `Animal ${opts.animal_id} updated` };
 };
 
@@ -56,7 +74,8 @@ export function registerAnimals(program: Command): void {
   withGlobals(
     animals
       .command('list')
-      .description('List animals on the farm.')
+      .description('List current animals on the farm.')
+      .option('--inventory-status <status>', 'CURRENT (default), UNKNOWN, SOLD, DECEASED, or ALL.')
       .option('--skip <n>', 'Records to skip (pagination).')
       .option('--take <n>', 'Max records to return.'),
   ).action(run(listAnimals));
@@ -69,6 +88,7 @@ export function registerAnimals(program: Command): void {
     animals
       .command('create')
       .description('Create a new animal. Use --metadata for free-form attributes.')
+      .option('--inventory-status <status>', 'CURRENT (default), UNKNOWN, SOLD, or DECEASED.')
       .option('--metadata <json>', 'Metadata object. Inline JSON, @file.json, or - (stdin).'),
   ).action(run(createAnimal));
 
@@ -76,6 +96,10 @@ export function registerAnimals(program: Command): void {
     animals
       .command('update')
       .description('Update an animal. Use --metadata for the fields to change.')
+      .option(
+        '--inventory-status <status>',
+        'CURRENT, UNKNOWN, SOLD, or DECEASED; preserves history.',
+      )
       .option('--metadata <json>', 'Metadata to update. Inline JSON, @file.json, or - (stdin).'),
   )
     .argument('<animal_id>')

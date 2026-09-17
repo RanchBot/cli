@@ -1,5 +1,6 @@
 /** @type {import('ts-jest').JestConfigWithTsJest} */
 module.exports = {
+  ...(!process.env.CI ? { maxWorkers: 1 } : {}),
   preset: 'ts-jest',
   testEnvironment: 'node',
   testMatch: ['**/__tests__/**/*.test.ts'],
@@ -16,12 +17,8 @@ module.exports = {
       },
     ],
   },
-  collectCoverage: true,
+  collectCoverage: !!process.env.CI,
   coverageDirectory: 'coverage',
   coverageReporters: ['text', 'lcov', 'html', 'json-summary'],
-  collectCoverageFrom: [
-    'src/**/*.ts',
-    '!src/index.ts',
-    '!src/__tests__/**/*.ts',
-  ],
+  collectCoverageFrom: ['src/**/*.ts', '!src/index.ts', '!src/__tests__/**/*.ts'],
 };

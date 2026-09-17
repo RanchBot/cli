@@ -12,6 +12,7 @@ interface MemoryVersion {
 
 interface GroupedMemory {
   key: string;
+  current: MemoryVersion | null;
   versions: MemoryVersion[];
 }
 
@@ -25,10 +26,11 @@ export const listMemories = async (client: any, defaultFarmId: string, opts: any
   const result = await client.listMemories(farmId);
   const grouped: GroupedMemory[] = result.memories ?? [];
   const memories = grouped.map((memory) => {
-    const current = memory.versions[0];
+    const current = memory.current;
     return {
       key: memory.key,
-      value: current?.value,
+      current: current ?? null,
+      value: current?.value ?? null,
       source: current?.source ?? null,
       as_of: current?.created_at,
       version_count: memory.versions.length,

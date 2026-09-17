@@ -1,3 +1,4 @@
+import { loadLocalSession, localOrigin } from './localSession';
 import { RanchBotApiClient } from './client';
 import {
   RuntimeOverrides,
@@ -23,6 +24,22 @@ export async function getAuthenticatedClient(
   overrides: RuntimeOverrides = {},
 ): Promise<ResolvedSession> {
   let runtime = resolveRuntime(overrides);
+  if (runtime.local) {
+    const apiUrl = localOrigin(runtime.apiUrl);
+    const local = loadLocalSession(apiUrl);
+    if (!local)
+      throw new CliError(
+        'Local session missing or expired. Run ranchbot login --local --api-url <installation>.',
+      );
+    return {
+      runtime: { ...runtime, apiUrl },
+      client: new RanchBotApiClient({
+        accessToken: local.access_token,
+        apiUrl,
+        apiVersion: runtime.apiVersion,
+      }),
+    };
+  }
   let tokens = loadTokens(runtime.profile);
 
   if (!tokens) {

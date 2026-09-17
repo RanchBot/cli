@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { registerAccounts } from './commands/accounts';
 import { Command } from 'commander';
 import { printError } from './output';
 import { registerLogin } from './commands/login';
@@ -9,11 +10,14 @@ import { registerAnimals } from './commands/animals';
 import { registerIdentifiers } from './commands/identifiers';
 import { registerGroups } from './commands/groups';
 import { registerRecords } from './commands/records';
+import { registerBirthHistory } from './commands/birthHistory';
+import { registerBirthEvents } from './commands/birthEvents';
 import { registerChute } from './commands/chute';
 import { registerRations } from './commands/rations';
 import { registerFeedings } from './commands/feedings';
 import { registerMemory } from './commands/memory';
 import { registerImports } from './commands/imports';
+import { registerExports } from './commands/exports';
 import { registerInspect } from './commands/inspect';
 
 const program = new Command();
@@ -25,8 +29,9 @@ program
       'sessions, rations, feedings, memory, imports) and inspect SMS provenance from any ' +
       "agent harness or shell. Reuses the MCP server's device-flow auth.",
   )
-  .version('1.0.0');
+  .version('1.1.0');
 
+registerAccounts(program);
 registerLogin(program);
 registerLogout(program);
 registerWhoami(program);
@@ -35,12 +40,15 @@ registerAnimals(program);
 registerIdentifiers(program);
 registerGroups(program);
 registerRecords(program);
+registerBirthEvents(program);
+registerBirthHistory(program);
 registerChute(program);
 registerRations(program);
 registerFeedings(program);
 registerMemory(program);
 registerImports(program);
 registerInspect(program);
+registerExports(program);
 
 async function main(): Promise<void> {
   try {

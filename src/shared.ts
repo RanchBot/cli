@@ -7,6 +7,7 @@ import { printResult } from './output';
 
 export interface GlobalOptions {
   json?: boolean;
+  local?: boolean;
   farm?: string;
   apiUrl?: string;
   apiVersion?: string;
@@ -29,6 +30,7 @@ export function withGlobals(cmd: Command): Command {
   return cmd
     .option('-j, --json', 'Machine-readable JSON on stdout (agents always set this).')
     .option('--farm <id>', 'Use this farm for one command (overrides the default).')
+    .option('--local', 'Use a local installation and its separate session cache.')
     .option('--api-url <url>', 'Override the API base URL.')
     .option('--api-version <v>', 'Override the API version segment.')
     .option('--client-id <id>', 'Override the OAuth device client id.')
@@ -37,6 +39,7 @@ export function withGlobals(cmd: Command): Command {
 
 export function toRuntimeOverrides(opts: GlobalOptions): RuntimeOverrides {
   return {
+    local: opts.local,
     apiUrl: opts.apiUrl,
     apiVersion: opts.apiVersion,
     clientId: opts.clientId,
@@ -64,8 +67,8 @@ export function resolveFarm(opts: GlobalOptions, defaultFarmId: string): string 
  * it resolves `opts.farm || defaultFarmId` itself via resolveFarm() when it needs a farm.
  */
 export async function execute(handler: Handler, opts: GlobalOptions): Promise<unknown> {
-  const { client } = await getAuthenticatedClient(toRuntimeOverrides(opts));
-  const defaultFarmId = getDefaultFarmId() || '';
+  const { client, runtime } = await getAuthenticatedClient(toRuntimeOverrides(opts));
+  const defaultFarmId = getDefaultFarmId(opts.local ? runtime.apiUrl : undefined) || '';
   return handler(client, defaultFarmId, opts as Record<string, any>);
 }
 

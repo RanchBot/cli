@@ -30,8 +30,8 @@ export interface AuthConfig {
 }
 
 export const FARM_DATA_SCOPES =
-  'read:farms write:farms read:animals write:animals read:records write:records read:groups write:groups';
-export const ADMIN_IMPORT_SCOPES = `${FARM_DATA_SCOPES} admin:imports`;
+  'read:farms write:farms read:animals write:animals read:records write:records read:groups write:groups read:exports';
+export const ADMIN_IMPORT_SCOPES = `${FARM_DATA_SCOPES} admin:imports admin:accounts:delete`;
 const OBSERVER_OAUTH_SCOPES = OBSERVER_SCOPES.join(' ');
 
 function requireClientId(clientId: string): string {

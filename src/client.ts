@@ -1,4 +1,11 @@
+import { createWriteStream } from 'fs';
+import { rm } from 'fs/promises';
+import { createHash } from 'crypto';
+import { Transform } from 'stream';
+import { pipeline } from 'stream/promises';
 import axios, { AxiosInstance } from 'axios';
+
+export type AnimalInventoryStatus = 'CURRENT' | 'UNKNOWN' | 'SOLD' | 'DECEASED';
 
 export interface ApiClientOptions {
   accessToken: string;
@@ -18,12 +25,141 @@ export class RanchBotApiClient {
   constructor(options: ApiClientOptions) {
     this.accessToken = options.accessToken;
     this.client = axios.create({
+      ...(options.accessToken.startsWith('rb_local_')
+        ? { maxRedirects: 0, proxy: false as const }
+        : {}),
       baseURL: `${options.apiUrl}/api/${options.apiVersion}`,
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${this.accessToken}`,
       },
     });
+  }
+
+  async previewAccountDeletion(phone: string) {
+    return (await this.client.post('/admin/account-deletions/preview', { phone })).data;
+  }
+  async executeAccountDeletion(confirmation_token: string, phone: string) {
+    return (await this.client.post('/admin/account-deletions', { confirmation_token, phone })).data;
+  }
+  async accountDeletionStatus(id: string) {
+    return (await this.client.get(`/admin/account-deletions/${encodeURIComponent(id)}`)).data;
+  }
+  async resumeAccountDeletion(id: string, phone: string) {
+    return (
+      await this.client.post(`/admin/account-deletions/${encodeURIComponent(id)}/resume`, { phone })
+    ).data;
+  }
+  async getBirthHistorySettings(farmId: string) {
+    return (await this.client.get(`/farm/${farmId}/birth-history/settings`)).data;
+  }
+
+  async setBirthHistorySettings(farmId: string, settings: Record<string, unknown>) {
+    return (await this.client.put(`/farm/${farmId}/birth-history/settings`, settings)).data;
+  }
+
+  async getBirthHistoryEvidence(farmId: string, params: { dam_id: string; birth_date: string }) {
+    return (await this.client.get(`/farm/${farmId}/birth-history/evidence`, { params })).data;
+  }
+
+  async previewBirthEvent(
+    farmId: string,
+    data: { request_id: string; bundle: Record<string, unknown> },
+  ) {
+    return (await this.client.post(`/farm/${farmId}/birth-events/preview`, data)).data;
+  }
+
+  async confirmBirthEvent(
+    farmId: string,
+    data: { request_id: string; bundle: Record<string, unknown>; confirmation_hash: string },
+  ) {
+    return (await this.client.post(`/farm/${farmId}/birth-events`, data)).data;
+  }
+
+  async listBirthEvents(
+    farmId: string,
+    params?: { skip?: number; take?: number; animal_id?: string },
+  ) {
+    return (await this.client.get(`/farm/${farmId}/birth-events`, { params })).data;
+  }
+
+  async getBirthEvent(farmId: string, eventId: string) {
+    return (await this.client.get(`/farm/${farmId}/birth-events/${eventId}`)).data;
+  }
+
+  async getBirthSourceEvidence(farmId: string, sourceSmsId: string) {
+    return (await this.client.get(`/farm/${farmId}/birth-sources/${sourceSmsId}`)).data;
+  }
+
+  async listFarmTasks(farmId: string, params?: { skip?: number; take?: number; status?: string }) {
+    return (await this.client.get(`/farm/${farmId}/farm-tasks`, { params })).data;
+  }
+
+  async updateFarmTask(
+    farmId: string,
+    taskId: string,
+    data: { status: 'TODO' | 'DONE' | 'CANCELLED'; due_date?: string | null },
+  ) {
+    return (await this.client.put(`/farm/${farmId}/farm-tasks/${taskId}`, data)).data;
+  }
+
+  async listProtocolVersions(farmId: string, params?: { skip?: number; take?: number }) {
+    return (await this.client.get(`/farm/${farmId}/protocol-versions`, { params })).data;
+  }
+
+  async createProtocolVersion(
+    farmId: string,
+    data: { name: string; version: string; steps: string[] },
+  ) {
+    return (await this.client.post(`/farm/${farmId}/protocol-versions`, data)).data;
+  }
+
+  async requestFarmExport(farmId: string) {
+    return (await this.client.post(`/farm/${farmId}/exports`)).data;
+  }
+
+  async listFarmExports(farmId: string) {
+    return (await this.client.get(`/farm/${farmId}/exports`)).data;
+  }
+
+  async farmExportStatus(farmId: string, id: string) {
+    return (await this.client.get(`/farm/${farmId}/exports/${id}`)).data;
+  }
+
+  async cancelFarmExport(farmId: string, id: string) {
+    return (await this.client.delete(`/farm/${farmId}/exports/${id}`)).data;
+  }
+
+  async downloadFarmExport(farmId: string, id: string, destination: string) {
+    const response = await this.client.get(`/farm/${farmId}/exports/${id}/download`, {
+      responseType: 'stream',
+      maxRedirects: 0,
+    });
+    const hash = createHash('sha256');
+    const output = createWriteStream(destination, { flags: 'wx', mode: 0o600 });
+    let created = false;
+    output.once('open', () => {
+      created = true;
+    });
+    try {
+      await pipeline(
+        response.data,
+        new Transform({
+          transform(chunk, _encoding, callback) {
+            hash.update(chunk);
+            callback(null, chunk);
+          },
+        }),
+        output,
+      );
+      const checksum = hash.digest('hex');
+      if (checksum !== response.headers['x-content-sha256'])
+        throw new Error('Archive checksum does not match. Download again.');
+      return { path: destination, sha256: checksum };
+    } catch (error) {
+      if (created) await rm(destination, { force: true });
+      throw error;
+    }
   }
 
   async getFarms() {
@@ -40,7 +176,10 @@ export class RanchBotApiClient {
     return response.data;
   }
 
-  async listAnimals(farmId: string, params?: { skip?: number; take?: number }) {
+  async listAnimals(
+    farmId: string,
+    params?: { skip?: number; take?: number; inventory_status?: AnimalInventoryStatus | 'ALL' },
+  ) {
     const response = await this.client.get(`/farm/${farmId}/animals`, { params });
     return response.data;
   }
@@ -50,12 +189,19 @@ export class RanchBotApiClient {
     return response.data;
   }
 
-  async createAnimal(farmId: string, data: { metadata?: any }) {
+  async createAnimal(
+    farmId: string,
+    data: { metadata?: any; inventory_status?: AnimalInventoryStatus },
+  ) {
     const response = await this.client.post(`/farm/${farmId}/animals`, data);
     return response.data;
   }
 
-  async updateAnimal(farmId: string, animalId: string, data: { metadata?: any }) {
+  async updateAnimal(
+    farmId: string,
+    animalId: string,
+    data: { metadata?: any; inventory_status?: AnimalInventoryStatus },
+  ) {
     const response = await this.client.put(`/farm/${farmId}/animals/${animalId}`, data);
     return response.data;
   }

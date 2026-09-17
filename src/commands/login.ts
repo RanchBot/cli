@@ -1,3 +1,4 @@
+import { loginLocal } from '../localLogin';
 import { Command } from 'commander';
 import {
   hasExactObserverScopes,
@@ -21,6 +22,7 @@ import { CliError } from '../errors';
  */
 export async function login(overrides: RuntimeOverrides, admin = false): Promise<unknown> {
   const runtime = resolveRuntime({ ...overrides, admin });
+  if (runtime.local) return loginLocal(runtime.apiUrl);
   const device = await initiateDeviceFlow(runtime, admin ? ADMIN_IMPORT_SCOPES : undefined);
 
   const prompt = {
@@ -70,7 +72,10 @@ export function registerLogin(program: Command): void {
       .description(
         'Sign in to Ranch.Bot via the OAuth device flow (founder completes the browser step).',
       )
-      .option('--admin', 'Request the internal admin-import capability (admin accounts only).'),
+      .option(
+        '--admin',
+        'Request the internal admin import and account deletion capabilities (admin accounts only).',
+      ),
   ).action(async (opts) => {
     const result = await login(toRuntimeOverrides(opts), Boolean(opts.admin));
     printResult(result, opts);
