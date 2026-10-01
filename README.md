@@ -6,7 +6,7 @@ Requires Node.js 22+ and a Ranch.Bot account with access to a farm.
 ## Install
 
 ```bash
-npm install -g @ranchbot/cli@1.1.0
+npm install -g @ranchbot/cli@1.1.1
 ranchbot --version
 ranchbot --help
 ```
@@ -14,10 +14,30 @@ ranchbot --help
 Or run without a global installation:
 
 ```bash
-npx -y @ranchbot/cli@1.1.0 --help
+npx -y @ranchbot/cli@1.1.1 --help
 ```
 
 Stop all older CLI/MCP processes before upgrading. See the locking and upgrade notes below.
+
+## Agent skill
+
+The package ships the optional public Agent Skill bundle at `skills/ranchbot` (`SKILL.md` plus
+`references/`). It teaches an agent task selection, approvals, multi-step workflows, and recovery;
+it is guidance, not a capability or a security boundary. The CLI itself is the capability.
+
+Once the public repository contains the bundle, install it with the Agent Skills installer:
+
+```bash
+npx skills add RanchBot/cli --skill ranchbot
+```
+
+The MCP server ships the same bundle and offers the equivalent route:
+`npx skills add RanchBot/mcp-server --skill ranchbot`. Install **one** copy, inspect the source, and
+choose the agent/project scope your installer offers. You can also copy the entire `ranchbot`
+folder into a skill directory your host supports. The installer is third-party tooling: it may emit
+its own telemetry and directory discovery, and installing a skill promises no listing or search
+ranking. Installing the skill does not configure MCP, install the `ranchbot` binary, authenticate
+you, or authorize any farm operation.
 
 ## Sign in and select a farm
 
@@ -92,9 +112,18 @@ Birth capture uses two explicit calls: `birth-events preview --data @birth.json 
 accepts `{request_id, bundle}` and saves no farm data. Review the complete returned bundle and
 resolved evidence with the producer, then pass that approved JSON to
 `birth-events confirm --data @reviewed-birth.json --json`. Confirmation preserves the returned
-`request_id`, `bundle`, and `confirmation_hash`; retries use the same values. Corrections require
-a fresh preview and producer approval. Confirmation needs EDITOR access and all three
-`write:records`, `write:animals`, and `write:groups` scopes.
+`request_id`, `bundle`, and `confirmation_hash`; retries use the same values. Confirmation needs
+EDITOR access and all three `write:records`, `write:animals`, and `write:groups` scopes.
+
+Before confirmation only, changes to an unconfirmed proposal or its referenced evidence require
+a fresh preview and renewed producer approval. An unchanged retry of the exact approved tuple
+returns the already-saved event; it is not a correction. If a confirmation outcome is uncertain,
+reconcile with reads before any further write.
+
+Saved birth correction is not currently supported. To correct a saved birth, stop and refer the
+producer to https://ranch.bot/support. Do not promise an amendment. Never re-record a saved birth
+through a new preview/confirmation, a new `request_id`, stripped or forged source provenance, or
+generic animal, record, or task edits, even with producer approval.
 
 `birth-sources get <sourceSmsId> --farm <farmId> --json` reads your retained SMS media status
 and current-farm identity candidates. It requires source authorship, current farm access, and both

@@ -19,6 +19,7 @@ import { registerMemory } from './commands/memory';
 import { registerImports } from './commands/imports';
 import { registerExports } from './commands/exports';
 import { registerInspect } from './commands/inspect';
+import { PACKAGE_VERSION } from './version';
 
 const program = new Command();
 
@@ -29,7 +30,7 @@ program
       'sessions, rations, feedings, memory, imports) and inspect SMS provenance from any ' +
       "agent harness or shell. Reuses the MCP server's device-flow auth.",
   )
-  .version('1.1.0');
+  .version(PACKAGE_VERSION);
 
 registerAccounts(program);
 registerLogin(program);

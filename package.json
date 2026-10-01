@@ -1,6 +1,6 @@
 {
   "name": "@ranchbot/cli",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Read and manage Ranch.Bot livestock records from a terminal or assistant: animals, births, exports, groups, records, and operator commands.",
   "main": "dist/index.js",
   "bin": {
@@ -8,10 +8,12 @@
   },
   "files": [
     "dist",
+    "skills",
     "README.md"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
+    "check:versions": "node scripts/release/main.mjs check-versions",
     "dev": "tsx watch src/index.ts",
     "lint": "eslint \"src/**/*.ts\"",
     "lint:fix": "eslint \"src/**/*.ts\" --fix",

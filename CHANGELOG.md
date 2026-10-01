@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.1.1
+
+- Bundle the optional public Ranch.Bot Agent Skill with CLI/MCP workflow references, approval
+  guidance, and recovery instructions.
+- Clarify that saved-birth correction is unsupported; fresh previews apply only before confirmation.
+- Derive the terminal version from package metadata and check candidate version copies before
+  publication. Add tag-triggered publishing, registry verification, and GitHub release automation.
+- Keep the existing CLI commands unchanged.
+
 ## 1.1.0
 
 - Add admin account deletion preview, interactive confirmation, job status, and failed-job
