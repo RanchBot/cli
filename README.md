@@ -6,7 +6,7 @@ Requires Node.js 22+ and a Ranch.Bot account with access to a farm.
 ## Install
 
 ```bash
-npm install -g @ranchbot/cli@1.1.1
+npm install -g @ranchbot/cli@1.1.2
 ranchbot --version
 ranchbot --help
 ```
@@ -14,7 +14,7 @@ ranchbot --help
 Or run without a global installation:
 
 ```bash
-npx -y @ranchbot/cli@1.1.1 --help
+npx -y @ranchbot/cli@1.1.2 --help
 ```
 
 Stop all older CLI/MCP processes before upgrading. See the locking and upgrade notes below.
@@ -81,27 +81,27 @@ Complex payloads (`--data`) accept inline JSON, `@file.json`, or `-` (stdin).
 
 ## Commands
 
-| Group                         | Commands                                                                                                        |
-| ----------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| `login` / `logout` / `whoami` | OAuth device flow, sign out, session + farm status.                                                             |
-| `farms`                       | `list`, `get <id>`, `use <id>`                                                                                  |
-| `animals`                     | `list`, `get <id>`, `create`, `update <id>`, `delete <id>`, `find-by-eid <eid>`                                 |
-| `identifiers`                 | `list <animal_id>`, `add <animal_id> --type --value [--primary]`, `remove <animal_id> <id>`                     |
-| `groups`                      | `list`, `get <id>`, `create --name [--description]`, `update <id>`, `delete <id>`                               |
-| `records`                     | `list [--type]`, `get <id>`, `create --name --type --applied-at --animal/--group`, `update <id>`, `delete <id>` |
-| `chute`                       | `list [--status]`, `get <id>`, `create --data <widgets>`, `update <id> --data <widgets>` (propose only)         |
-| `birth-events`                | `preview --data`, `confirm --data`, `list [--animal <id>]`, `get <id>`                                          |
-| `birth-history`               | `settings`, `configure --data`, `evidence --dam <id> --date YYYY-MM-DD`                                         |
-| `birth-sources`               | `get <sourceSmsId>`                                                                                             |
-| `farm-tasks`                  | `list [--status]`, `update <id> --data`                                                                         |
-| `protocols`                   | `list`, `create --data`                                                                                         |
-| `rations`                     | `list [--include-inactive]`, `get <id>`, `create --data <ration>` (structure only)                              |
-| `feedings`                    | `list [--status] [--since]`, `get <id>` (read-only)                                                             |
-| `exports`                     | `create`, `list`, `status <id>`, `cancel <id>`, `download <id> --output <path>`                                 |
-| `imports`                     | `list`, `get <id>`, `update-status <id> --status <status> --summary <summary>` (admin)                          |
-| `accounts`                    | `delete --phone <phone> [--dry-run]`, `deletion-status <id>`, `resume-deletion <id>` (admin)                    |
-| `inspect`                     | `sms --latest/--message-sid <sid>/--record-id <id>`, `record <id>` (observer)                                   |
-| `memory`                      | `list` (read-only; saving memory is in-app only)                                                                |
+| Group                         | Commands                                                                                                                                         |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `login` / `logout` / `whoami` | OAuth device flow, sign out, session + farm status.                                                                                              |
+| `farms`                       | `list`, `get <id>`, `use <id>`                                                                                                                   |
+| `animals`                     | `list`, `get <id>`, `create`, `update <id>`, `delete <id>`, `lookup-by-eid <eid>`, `find-or-create-by-eid <eid>`, deprecated `find-by-eid <eid>` |
+| `identifiers`                 | `list <animal_id>`, `add <animal_id> --type --value [--primary]`, `remove <animal_id> <id>`                                                      |
+| `groups`                      | `list`, `get <id>`, `create --name [--description]`, `update <id>`, `delete <id>`                                                                |
+| `records`                     | `list [--type]`, `get <id>`, `create --name --type --applied-at --animal/--group`, `update <id>`, `delete <id>`                                  |
+| `chute`                       | `list [--status]`, `get <id>`, `create --data <widgets>`, `update <id> --data <widgets>` (propose only)                                          |
+| `birth-events`                | `preview --data`, `confirm --data`, `list [--animal <id>]`, `get <id>`                                                                           |
+| `birth-history`               | `settings`, `configure --data`, `evidence --dam <id> --date YYYY-MM-DD`                                                                          |
+| `birth-sources`               | `get <sourceSmsId>`                                                                                                                              |
+| `farm-tasks`                  | `list [--status]`, `update <id> --data`                                                                                                          |
+| `protocols`                   | `list`, `create --data`                                                                                                                          |
+| `rations`                     | `list [--include-inactive]`, `get <id>`, `create --data <ration>` (structure only)                                                               |
+| `feedings`                    | `list [--status] [--since]`, `get <id>` (read-only)                                                                                              |
+| `exports`                     | `create`, `list`, `status <id>`, `cancel <id>`, `download <id> --output <path>`                                                                  |
+| `imports`                     | `list`, `get <id>`, `update-status <id> --status <status> --summary <summary>` (admin)                                                           |
+| `accounts`                    | `delete --phone <phone> [--dry-run]`, `deletion-status <id>`, `resume-deletion <id>` (admin)                                                     |
+| `inspect`                     | `sms --latest/--message-sid <sid>/--record-id <id>`, `record <id>` (observer)                                                                    |
+| `memory`                      | `list` (read-only; saving memory is in-app only)                                                                                                 |
 
 Identifier types: `BRAND`, `EID`, `MANAGEMENT_TAG`, `NAME`, `TATTOO`.
 Record types: `FEED`, `GENETIC`, `HEALTH`, `MOVEMENT`, `OTHER`.
@@ -143,7 +143,16 @@ returns recorded exposure and movement evidence without selecting a sire.
 `animals list` defaults to current inventory. Use `--inventory-status CURRENT`, `UNKNOWN`,
 `SOLD`, `DECEASED`, or `ALL` to choose the population. `animals create` and `animals update <id>`
 accept the four individual statuses; changing status preserves the animal's history.
-`animals find-by-eid` can create an animal when no match exists.
+`animals lookup-by-eid <eid>` reads an exact EID across inventory statuses and never writes.
+A missing match returns HTTP 404; multiple matching animals return HTTP 409. Reader access is sufficient.
+`animals find-or-create-by-eid <eid>` intentionally creates inventory when no match exists and
+requires Editor access.
+
+`animals find-by-eid` is a deprecated compatibility alias that still **creates inventory**.
+Migrate read workflows to `lookup-by-eid` and approved creation workflows to `find-or-create-by-eid`.
+The legacy alias will remain through the current major version; removal requires a major release.
+The read command requires the API's `/animals/lookup-by-eid` endpoint; against an older API it fails
+without retrying a write. Deploy the API before releasing these client commands.
 
 ```bash
 ranchbot animals list --inventory-status ALL --json

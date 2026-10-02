@@ -57,6 +57,11 @@ export const deleteAnimal = async (client: any, defaultFarmId: string, opts: any
   return { deleted: true, id: opts.animal_id, message: `Animal ${opts.animal_id} deleted` };
 };
 
+export const lookupAnimalByEid = async (client: any, defaultFarmId: string, opts: any) => {
+  const farmId = resolveFarm(opts, defaultFarmId);
+  return client.lookupAnimalByEid(farmId, opts.eid);
+};
+
 export const findAnimalByEid = async (client: any, defaultFarmId: string, opts: any) => {
   const farmId = resolveFarm(opts, defaultFarmId);
   const result = await client.findOrCreateAnimalByEid(farmId, opts.eid);
@@ -109,7 +114,33 @@ export function registerAnimals(program: Command): void {
     .argument('<animal_id>')
     .action(run1(deleteAnimal, 'animal_id'));
 
-  withGlobals(animals.command('find-by-eid').description('Find or create an animal by EID.'))
+  withGlobals(
+    animals
+      .command('lookup-by-eid')
+      .description(
+        'Read-only exact EID lookup. Never creates animals; missing or ambiguous matches fail.',
+      ),
+  )
+    .argument('<eid>')
+    .action(run1(lookupAnimalByEid, 'eid'));
+
+  withGlobals(
+    animals
+      .command('find-or-create-by-eid')
+      .description(
+        'Find or create an animal by EID. Creates inventory when no match exists; requires Editor access.',
+      ),
+  )
+    .argument('<eid>')
+    .action(run1(findAnimalByEid, 'eid'));
+
+  withGlobals(
+    animals
+      .command('find-by-eid')
+      .description(
+        'DEPRECATED: creates inventory when no EID matches. Use lookup-by-eid for reads or find-or-create-by-eid for intentional creation.',
+      ),
+  )
     .argument('<eid>')
     .action(run1(findAnimalByEid, 'eid'));
 }

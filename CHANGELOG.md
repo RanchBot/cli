@@ -1,13 +1,17 @@
 # Changelog
 
-## 1.1.1
+## 1.1.2
 
 - Bundle the optional public Ranch.Bot Agent Skill with CLI/MCP workflow references, approval
   guidance, and recovery instructions.
 - Clarify that saved-birth correction is unsupported; fresh previews apply only before confirmation.
 - Derive the terminal version from package metadata and check candidate version copies before
   publication. Add tag-triggered publishing, registry verification, and GitHub release automation.
-- Keep the existing CLI commands unchanged.
+- Fix the standalone release workflow so the packed candidate is passed to `npm publish` as a file
+  path instead of being read as a GitHub `owner/repo` shorthand.
+- Add read-only `animals lookup-by-eid` for exact EID lookup that never creates animals, and
+  `animals find-or-create-by-eid` for deliberate creation. Deprecate `animals find-by-eid`, which
+  still creates inventory when no EID matches.
 
 ## 1.1.0
 

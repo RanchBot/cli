@@ -1,3 +1,4 @@
+import { Command } from 'commander';
 import { createMockClient } from '../testUtils';
 import {
   listAnimals,
@@ -6,6 +7,8 @@ import {
   updateAnimal,
   deleteAnimal,
   findAnimalByEid,
+  lookupAnimalByEid,
+  registerAnimals,
 } from '../../../commands/animals';
 
 describe('animals commands', () => {
@@ -121,5 +124,43 @@ describe('animals commands', () => {
     expect(client.findOrCreateAnimalByEid).toHaveBeenNthCalledWith(1, 'farm-1', 'e1');
     expect(found.message).toBe('Animal found with EID e1');
     expect(created.message).toBe('Animal created with EID e2');
+  });
+});
+
+describe('safe animal lookup command', () => {
+  it.each(['not found', 'ambiguous'])(
+    'propagates %s without falling back to creation',
+    async (message) => {
+      const client = createMockClient();
+      client.lookupAnimalByEid.mockRejectedValue(new Error(message));
+      await expect(
+        lookupAnimalByEid(client, 'default', { farm: 'selected', eid: '001' }),
+      ).rejects.toThrow(message);
+      expect(client.lookupAnimalByEid).toHaveBeenCalledWith('selected', '001');
+      expect(client.findOrCreateAnimalByEid).not.toHaveBeenCalled();
+      expect(client.createAnimal).not.toHaveBeenCalled();
+    },
+  );
+
+  it('returns the existing animal', async () => {
+    const client = createMockClient();
+    client.lookupAnimalByEid.mockResolvedValue({ id: 'animal' });
+    expect(await lookupAnimalByEid(client, 'farm', { eid: '001' })).toEqual({ id: 'animal' });
+    expect(client.findOrCreateAnimalByEid).not.toHaveBeenCalled();
+  });
+
+  it('makes read, create, and deprecated behavior explicit in command help', () => {
+    const program = new Command();
+    registerAnimals(program);
+    const commands = program.commands[0].commands;
+    expect(commands.find((c) => c.name() === 'lookup-by-eid')?.helpInformation()).toMatch(
+      /Read-only.*Never creates/,
+    );
+    expect(commands.find((c) => c.name() === 'find-or-create-by-eid')?.helpInformation()).toMatch(
+      /Creates inventory/,
+    );
+    expect(commands.find((c) => c.name() === 'find-by-eid')?.helpInformation()).toMatch(
+      /DEPRECATED: creates inventory/,
+    );
   });
 });

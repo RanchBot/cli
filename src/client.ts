@@ -210,6 +210,13 @@ export class RanchBotApiClient {
     await this.client.delete(`/farm/${farmId}/animals/${animalId}`);
   }
 
+  async lookupAnimalByEid(farmId: string, eid: string) {
+    const response = await this.client.get(`/farm/${farmId}/animals/lookup-by-eid`, {
+      params: { eid },
+    });
+    return response.data;
+  }
+
   async findOrCreateAnimalByEid(farmId: string, eid: string) {
     const response = await this.client.post(`/farm/${farmId}/animals/find-or-create-by-eid`, {
       eid,
